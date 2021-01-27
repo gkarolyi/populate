@@ -40,8 +40,6 @@ sample entry: LIB Model View Controller model_repository SPEC VIEWS index about 
 require 'pry-byebug'
 
 class FolderStructure
-  attr_accessor :data, :start_dir
-
   def initialize(parameter_string)
     @start_dir = Dir.getwd
     @classfile = /[A-Z][a-z]+\b|[a-z]+_[a-z]+\b/
@@ -49,11 +47,11 @@ class FolderStructure
     @folder = /[A-Z]+\b/
     @extension = /\A\.[a-z]+\b/
     @file = /[a-z]+\b/
-    @data = parse(parameter_string)
+    @structure_hash = parse(parameter_string)
   end
 
   def write
-    @data.each do |foldername, files|
+    @structure_hash.each do |foldername, files|
       Dir.exist?(foldername) ? pass : Dir.mkdir(foldername)
       Dir.chdir(foldername)
       files.each do |file|
