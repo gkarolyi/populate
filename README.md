@@ -12,3 +12,5 @@ When finished, this should:
 * name files in each folder with the extension given, or ```.rb``` by default
 * add class definition boilerplate to files named in lower_snake or UpperCamel case
 * be quick, simple, fuss-free and reliable
+
+Not currently working, but we'll get there
