@@ -39,70 +39,91 @@ sample entry: LIB Model View Controller model_repository SPEC VIEWS index about 
 =end
 require 'pry-byebug'
 
-@REGEX = {
-  classfile: /[A-Z][a-z]+\b|[a-z]+_[a-z]+\b/,
-  lowersnake: /[a-z]+_[a-z]+\b/,
-  folder: /[A-Z]+\b/,
-  extension: /\.[a-z]+\b/,
-  file: /[a-z]+\b/
-}
+class FolderStructure
+  attr_accessor :data, :start_dir
 
-# @REGEX = /(?<foldername>[A-Z]+\b)|(?<classfile>[A-Z][a-z]+\b)|(?<extension>\.[a-z]+\b)|(?<file>[a-z]+\b)/.freeze
-def create_folder(item)
-  Dir.mkdir(item.downcase, 755)
-  File.chmod(0755, item.downcase)
-end
-
-def init_class(item)
-  filename = item.downcase
-  classname = item.match?(@REGEX[:lowersnake]) ? item.split('_').map(&:capitalize).join : item
-  File.open("#{filename}.rb", 'w') do |f|
-    f.puts "class #{classname}"
-    f.puts '  def initialize(attributes = {})'
-    f.puts '  '
-    f.puts '  end'
-    f.puts 'end'
-    f.puts
+  def initialize(parameter_string)
+    @start_dir = Dir.getwd
+    @classfile = /[A-Z][a-z]+\b|[a-z]+_[a-z]+\b/
+    @lowersnake = /[a-z]+_[a-z]+\b/
+    @folder = /[A-Z]+\b/
+    @extension = /\A\.[a-z]+\b/
+    @file = /[a-z]+\b/
+    @data = parse(parameter_string)
   end
-end
 
-def create_files(files, extension)
-  files.each do |file|
-    File.write("#{file}#{extension}", '')
+  def write
+    @data.each do |foldername, files|
+      Dir.exist?(foldername) ? pass : Dir.mkdir(foldername)
+      Dir.chdir(foldername)
+      files.each do |file|
+        File.write(file, '')
+      end
+      Dir.chdir('../')
+    end
   end
-end
 
-def generate_specs(lib_path)
-  lib_names = Dir.children(lib_path)
-  lib_names.each do |filename|
-    spec_name = "#{filename.split('.')[0]}_spec.rb"
-    File.write(spec_name, '')
+  private
+
+  def parse(parameters)
+    parameters = parameters.instance_of?(String) ? parameters.split : parameters
+    structure = add_folders(parameters)
+    structure['spec'] = generate_specs(structure['lib']) if needs_spec?(structure)
+    structure.each_value { |folder| name_files(folder) }
+    structure
   end
-end
 
-start_dir = Dir.getwd
-files = []
-
-ARGV.each do |item|
-  #binding.pry
-  if item.match?(@REGEX[:folder])
-    create_files(files, '.rb') unless files.empty?
-    Dir.chdir(start_dir)
-    create_folder(item)
-    Dir.chdir("./#{item}")
-    next
-  elsif item == 'SPEC' && Dir.exist?("#{start_dir}/lib")
-    generate_specs("#{start_dir}/lib")
-    next
-  elsif item.match?(@REGEX[:classfile])
-    init_class(item)
-    next
-  elsif item.match?(@REGEX[:extension])
-    create_files(files, item)
-    files = []
-    next
-  elsif item.match?(@REGEX[:file])
-    files << item
-    next
+  def class?(item)
+    item.match(@classfile)
   end
+
+  def folder?(item)
+    item.match?(@folder)
+  end
+
+  def lowersnake?(item)
+    item.match?(@lowersnake)
+  end
+
+  def extension?(item)
+    item.match?(@extension)
+  end
+
+  def file?(item)
+    item.match?(@file) && !extension?(item)
+  end
+
+  def needs_spec?(structure_hash)
+    structure_hash.key?('spec') && structure_hash['spec'].length.zero?
+  end
+
+  def add_folders(parameters)
+    structure = { @start_dir => [] }
+    current = @start_dir
+    parameters.each do |item|
+      if folder?(item)
+        structure[item.downcase] = []
+        current = item.downcase
+      else
+        structure[current] << item
+      end
+    end
+    structure
+  end
+
+  def name_files(folder)
+    return if folder.empty?
+
+    ext = extension?(folder.last) ? folder.last : '.rb'
+    folder.map! { |item| "#{item}#{ext}" }
+    folder.delete(folder.last) if extension?(folder.last)
+  end
+
+  def generate_specs(lib_folder)
+    lib_folder.map { |item| "#{item.downcase}_spec" }
+  end
+
+  def pass; end
 end
+
+FolderStructure.new(ARGV).write
